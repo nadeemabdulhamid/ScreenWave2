@@ -48,7 +48,7 @@ boolean showBack = false;
 boolean showBouncies = true;
 boolean showCameraImage = false;
 boolean showDiff = false;
-boolean showFrames = true;
+boolean showFrames = false;
 boolean showPushers = false;
 boolean smoothDraw = false;
 
