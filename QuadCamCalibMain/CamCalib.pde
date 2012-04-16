@@ -101,6 +101,7 @@ class QuadCamCalib implements ICamCalib {
 	public void drawCalibLines(PGraphics src) {
 		if (!isComplete()) throw new RuntimeException("calibration not complete"); 
 		
+		src.noFill();
 		src.stroke(255);
 		for (int i = 0; i < maxPoints; i++) {
 		  // System.out.printf("%d: (%d, %d) ---> (%d, %d)\n", i, points[i][0], points[i][1], points[(i+1)%maxPoints][0], points[(i+1)%maxPoints][1]);
@@ -188,8 +189,9 @@ class RectCamCalib implements ICamCalib {
 	}
 	
 	public void drawCalibLines(PGraphics src) {
-		println("TODO");
-		throw new RuntimeException("RectCamCalib::drawCalibLines -- unimplemented...");
+		src.noFill();
+		src.stroke(255);
+		src.rect(x, y, w, h);
 	}
 
 
