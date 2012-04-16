@@ -11,29 +11,33 @@ int IMAGE_SCALE = 100;  // percent of display size to scale image
 
 
 GSCapture video;        // camera
-final int VID_WIDTH = 800;
-final int VID_HEIGHT = 600;
-final int VID_FPS = 30;   // frames/second
+final int VIDEO_WIDTH = 800;
+final int VIDEO_HEIGHT = 600;
+final int VIDEO_FPS = 30;   // frames/second
 
 PImage cameraImage;            // current image from camera
 
-CamCalib cc;
+ICamCalib cc;
 
 PGraphics offscreen;    // double-buffering
-final int SCR_WIDTH = 1600; //1024;
-final int SCR_HEIGHT = 1000; //768;
+final int SCR_WIDTH = 1024; //1600; //1024;
+final int SCR_HEIGHT = 768; //1000; //768;
 
 final color BACKGROUND_COLOR = color(255);
 final color TRANSPARENT_COLOR = color(255, 0);
 final color DIFF_COLOR = color(51);
 
+PImage diffImage;       // image from calibration of camera image, to be used for frame difference computing
 IDiffComputer dc;    // frame difference computer
 boolean[] diffs;
 
+final int DIFF_WIDTH = 640;   // width of the image to which video should be scaled to compute diffs
+final int DIFF_HEIGHT = 480;  // height ...    (see VID_WIDTH/HEIGHT above)
+
 final int MIN_DIFF_COUNT = 100;
 final float DIFF_TOLERANCE = 55;
-final float DIFF_FRAME_WEIGHT = 0.1;
-final int MIN_NBRS = 5;  // min neighboring diffs to be true to generate a pusher
+final float DIFF_FRAME_WEIGHT = 0.9;  // weight value to use averaging current frame with previous for differencing
+final int MIN_NBRS = 4;  // min neighboring diffs to be true to generate a pusher
 
 
 
@@ -50,13 +54,13 @@ boolean smoothDraw = false;
 
 
 /* pushers and bouncies */
-int[] pushers;  /* array of indices of pushers - max # is VID_WIDTH * VID_HEIGHT */
+int[] pushers;  /* array of indices of pushers - max # is DIFF_WIDTH * DIFF_HEIGHT */
 int numPushers;    /* note: corresponds to screen area */
 
-final int PUSHER_SIZE_HI = SCR_HEIGHT / 7;  // bigger pushers when high amount of diffs
-final int PUSHER_SIZE_LO = SCR_HEIGHT / 10;
-      int PUSHER_SIZE = PUSHER_SIZE_LO;
-      float PUSHER_SEP = PUSHER_SIZE * .4;
+//final int PUSHER_SIZE_HI = SCR_HEIGHT / 7;  // bigger pushers when high amount of diffs
+//final int PUSHER_SIZE_LO = SCR_HEIGHT / 10;
+final int PUSHER_SIZE = SCR_HEIGHT / 9;
+final float PUSHER_SEP = PUSHER_SIZE * .3;
 final int MAX_PUSHER_IN_ROW = (int)(SCR_HEIGHT / PUSHER_SEP) + 3;
 
 Bouncy[] bouncies;
@@ -70,23 +74,25 @@ void setup() {
 	size(SCR_WIDTH, SCR_HEIGHT, P2D);
 	frameRate(45);
 	
-	video = new GSCapture(this, VID_WIDTH, VID_HEIGHT, VID_FPS);
+	video = new GSCapture(this, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS);
 	video.start();
-	cameraImage = createImage(VID_WIDTH, VID_HEIGHT, RGB);
+	cameraImage = createImage(VIDEO_WIDTH, VIDEO_HEIGHT, RGB);
 	
 	if (fileExists("camcalib.txt")) {
-		cc = new CamCalib("camcalib.txt");
+		cc = new QuadCamCalib();
+		cc.loadFile("camcalib.txt");
 	}
 	else {
-		cc = new CamCalib(0, 0, VID_WIDTH, VID_HEIGHT);
+		cc = new RectCamCalib(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
 	}
+	cc.setTarget(DIFF_WIDTH, DIFF_HEIGHT);
 	
 	offscreen = createGraphics(SCR_WIDTH, SCR_HEIGHT, P2D);
 	offscreen.loadPixels();
 	
-	dc = new FDDiffComputer(VID_WIDTH, VID_HEIGHT, DIFF_TOLERANCE, DIFF_FRAME_WEIGHT);
+	dc = new FDDiffComputer(DIFF_WIDTH, DIFF_HEIGHT, DIFF_TOLERANCE, DIFF_FRAME_WEIGHT);
 
-	pushers = new int[VID_WIDTH * VID_HEIGHT];
+	pushers = new int[DIFF_WIDTH * DIFF_HEIGHT];
 	numPushers = 0;
 	
   backpic = fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
@@ -170,7 +176,8 @@ void draw() {
 
 	if (showCameraImage) {
 		offscreen.image(cameraImage, 0, 0);
-		offscreen.text("hi", 10, 10);
+		cc.drawCalibLines(offscreen);
+		//offscreen.text("hi", 10, 10);
 	}
 
 	offscreen.endDraw();
@@ -184,12 +191,12 @@ void draw() {
 
 
 
-final int[] OFFSETS = { -VID_WIDTH, +VID_WIDTH, -1, +1, 
-										-VID_WIDTH-1, -VID_WIDTH+1, VID_WIDTH-1, VID_WIDTH+1 };
+final int[] OFFSETS = { -DIFF_WIDTH, +DIFF_WIDTH, -1, +1, 
+										-DIFF_WIDTH-1, -DIFF_WIDTH+1, DIFF_WIDTH-1, DIFF_WIDTH+1 };
 										
 void createPushers() {
-	float hscale = SCR_WIDTH / (float)cc.w;
-	float vscale = SCR_HEIGHT / (float)cc.h;
+	float hscale = SCR_WIDTH / (float)DIFF_WIDTH;
+	float vscale = SCR_HEIGHT / (float)DIFF_HEIGHT;
 	int i, x, y, o, nbrs;
 	int px, py, j, qx, qy;
 	boolean makeNew;
@@ -198,11 +205,11 @@ void createPushers() {
 	
 	//long start = millis();
 	
-	int xlim = cc.x+cc.w-1;
-	int ylim = cc.y+cc.h-1;
-	for (x = cc.x+1; x < xlim; x++) {
-		for (y = cc.y+1; y < ylim; y++) {
-			i = y * cc.w + x;   // source (diffs) pixel index
+	int xlim = DIFF_WIDTH-1;
+	int ylim = DIFF_HEIGHT-1;
+	for (x = 1; x < xlim; x++) {
+		for (y = 1; y < ylim; y++) {
+			i = y * DIFF_WIDTH + x;   // source (diffs) pixel index
 			if (!diffs[i]) continue; // not a diff
 			
 			nbrs = 0;
@@ -215,8 +222,8 @@ void createPushers() {
 					diffs[i+OFFSETS[o]] = false; // clear out nbrs!!!
 				}
 				
-				px = (int)((x - cc.x) * hscale);
-				py = (int)((y - cc.y) * vscale);
+				px = (int)(x * hscale);
+				py = (int)(y * vscale);
 				makeNew = true;
 				for (j = 0; j < numPushers && j < MAX_PUSHER_IN_ROW; j++) {  // see if any (qx,qy) near (px,py)
 					qx = pushers[numPushers-1-j] % SCR_WIDTH;
@@ -254,24 +261,22 @@ void drawPushers() {
 
 /* draws diffs onto offscreen */
 void drawDiffImage() {
-	float hscale = SCR_WIDTH / (float)cc.w;
-	float vscale = SCR_HEIGHT / (float)cc.h;
+	float hscale = SCR_WIDTH / (float) DIFF_WIDTH;
+	float vscale = SCR_HEIGHT / (float) DIFF_HEIGHT;
 	int i, dx, dy, j;
-		
-        cameraImage.loadPixels();
-	for (int x = cc.x; x < cc.x+cc.w; x++) {
-		for (int y = cc.y; y < cc.y+cc.h; y++) {
-			i = y * VID_WIDTH + x;  // source (diffs) pixel index
+
+	// global now... PImage diffImage = cc.toTarget(cameraImage);
+  //   diffImage.loadPixels();
+	
+	for (int x = 0; x < DIFF_WIDTH; x++) {
+		for (int y = 0; y < DIFF_HEIGHT; y++) {
+			i = y * DIFF_WIDTH + x;  // source (diffs) pixel index
 			if (diffs[i]) {
-				//dx = (int)((x - cc.x) * hscale);
-				//dy = (int)((y - cc.y) * vscale);
-				//j = dy * SCR_WIDTH + dx;
-				j = ((int)((y - cc.y) * vscale)) * SCR_WIDTH + (int)((x - cc.x) * hscale);
-				offscreen.pixels[j] = cameraImage.pixels[i]; //DIFF_COLOR;
-			} else {
-				//j = ((int)((y - cc.y) * vscale)) * SCR_WIDTH + (int)((x - cc.x) * hscale);
-				//image.pixels[j] = BACKGROUND_COLOR;
-			}
+				offscreen.fill(diffImage.pixels[i]);
+				offscreen.ellipse(x*hscale, y*vscale, ceil(hscale*2), ceil(vscale*2));
+				//j = ((int)(y * vscale)) * SCR_WIDTH + (int)(x * hscale);
+				//offscreen.pixels[j] = diffImage.pixels[i]; //DIFF_COLOR;
+			} 
 		}
 	}
 	
@@ -288,7 +293,7 @@ void keyPressed() {
 		case 'F': showFrames = !showFrames; break;
 		case 'M': mirrorVideo = !mirrorVideo; break;
 		case 'P': showPushers = !showPushers; break;
-		case 'R': dc = new FDDiffComputer(VID_WIDTH, VID_HEIGHT, DIFF_TOLERANCE, DIFF_FRAME_WEIGHT);
+		case 'R': dc = new FDDiffComputer(DIFF_WIDTH, DIFF_HEIGHT, DIFF_TOLERANCE, DIFF_FRAME_WEIGHT);
 						  numPushers = 0;
 						  break;
 		case 'S': smoothDraw = !smoothDraw; break;
@@ -336,30 +341,31 @@ void keyPressed() {
 
 
 
-
 void captureEvent(GSCapture video) {
 	video.read();
 	video.loadPixels();
+
+	PImage tempCameraImage = createImage(VIDEO_WIDTH, VIDEO_HEIGHT, RGB);
 	if (mirrorVideo) {
-		for (int w = 0; w < VID_WIDTH; w++) {
-			for (int h = 0; h < VID_HEIGHT; h++) {
-				cameraImage.pixels[h*VID_WIDTH + w] = video.pixels[h*VID_WIDTH + (VID_WIDTH - w - 1)];		
+		for (int w = 0; w < VIDEO_WIDTH; w++) {
+			for (int h = 0; h < VIDEO_HEIGHT; h++) {
+				tempCameraImage.pixels[h*VIDEO_WIDTH + w] = video.pixels[h*VIDEO_WIDTH + (VIDEO_WIDTH - w - 1)];		
 			}
 		}
 	} else {
-		arraycopy(video.pixels, cameraImage.pixels);
+		arraycopy(video.pixels, tempCameraImage.pixels);
 	}
-	cameraImage.updatePixels();
+	tempCameraImage.updatePixels();
+	cameraImage = tempCameraImage;   // this is so that update to cameraImage is atomic
 	
-	diffs = dc.nextFrame(cameraImage.pixels);
+	diffImage = cc.toTarget(cameraImage);
+	diffImage.loadPixels();
+	diffs = dc.nextFrame(diffImage.pixels);
 	int count = dc.lastDiffCount();
-//	if (count < MIN_DIFF_COUNT) diffs = null;
-//	else {
-		if (count > 90000) PUSHER_SIZE = PUSHER_SIZE_HI;
-		else PUSHER_SIZE = PUSHER_SIZE_LO;
-		PUSHER_SEP = PUSHER_SIZE * .4;
-		//println(count);
-//	}
+
+	/*if (count > 90000) PUSHER_SIZE = PUSHER_SIZE_HI;
+	else PUSHER_SIZE = PUSHER_SIZE_LO;
+	PUSHER_SEP = PUSHER_SIZE * .4;*/
 }
 
 

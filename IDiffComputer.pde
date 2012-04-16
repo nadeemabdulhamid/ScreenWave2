@@ -34,6 +34,8 @@ class FDDiffComputer implements IDiffComputer {
 
 
 	public boolean[] nextFrame(int[] pixels) {
+		//println("pixels.length: " + pixels.length);
+		
 		if (previousFrame == null) {   // copy in the first frame
 			previousFrame = new int[width * height];
 			diffs = new boolean[width * height];  // all false
