@@ -1,7 +1,7 @@
 
 import codeanticode.gsvideo.*;
 
-String[] IMAGES = { "vikinghead.jpg", "vikinglogo.jpg", "firsthand.jpg",
+String[] IMAGES = { /* "wordle120.png",*/ "vikinghead.jpg", "vikinglogo.jpg", "firsthand.jpg",
                     "fordgarden.jpg" /*, "shapes.png" */ };
 int currentImage = 0;  // index
 PImage backpic;
@@ -68,13 +68,14 @@ Bouncy[] bouncies;
 final int BOUNCY_GRANULARITY = 3;  // determines how much to slice up a picture to create initial bouncies
 final float BOUNCY_SIZE_FACTOR = 1.5;
 
-
+import processing.video.*;
 
 void setup() {
 	size(SCR_WIDTH, SCR_HEIGHT, P2D);
 	frameRate(45);
 	
-	video = new GSCapture(this, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS);
+	println(Capture.list());
+	video = new GSCapture(this, VIDEO_WIDTH, VIDEO_HEIGHT, /*"Sony HD Eye for PS3 (SLEH 00201):0",*/ VIDEO_FPS);
 	video.start();
 	cameraImage = createImage(VIDEO_WIDTH, VIDEO_HEIGHT, RGB);
 	

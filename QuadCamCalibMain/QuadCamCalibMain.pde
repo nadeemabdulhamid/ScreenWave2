@@ -12,9 +12,9 @@ QuadCamCalib cc = new QuadCamCalib();
 boolean mirror = false;
 
 void setup() {
-  size(640, 480, P2D);
+  size(1024, 786, P2D);
   
-  cam = new GSCapture(this, 800, 600);
+  cam = new GSCapture(this, 800, 600, "Sony HD Eye for PS3 (SLEH 00201):0");
   cam.start();    
 }
 
