@@ -10,6 +10,7 @@ Images
 
 Keyboard Controls
 
+ a: turn on/off auto-advance of images
  b: show/hide a static faded image in the background
  c: show/hide the camera image stream, with outline of calibrated image area
  d: show/hide detected differences from previous frame(s)
