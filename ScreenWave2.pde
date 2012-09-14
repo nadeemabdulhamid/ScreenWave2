@@ -3,8 +3,8 @@ import codeanticode.gsvideo.*;
 import java.io.*;
 
 String IMAGE_PATH_PREFIX = "images";
-String[] IMAGES; /* = { "vikinghead.jpg", "vikinglogo.jpg", "firsthand.jpg",
-                    "fordgarden.jpg" , "shapes.png"  }; */
+String[] IMAGES;
+                    
 Frame[] FRAMES;                    
 int currentImage;  // index
 PImage backpic;
@@ -283,9 +283,6 @@ void drawDiffImage() {
 	float hscale = SCR_WIDTH / (float) DIFF_WIDTH;
 	float vscale = SCR_HEIGHT / (float) DIFF_HEIGHT;
 	int i, dx, dy, j;
-
-	// global now... PImage diffImage = cc.toTarget(cameraImage);
-  //   diffImage.loadPixels();
 	
 	for (int x = 0; x < DIFF_WIDTH; x++) {
 		for (int y = 0; y < DIFF_HEIGHT; y++) {
@@ -335,10 +332,6 @@ void loadNext() {
   for (int i = 0; i < bouncies.length; i++) {
      bouncies[i].reset(); 
   }
-  /* fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
-  bouncies = loadBouncyImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, 
-						BOUNCY_GRANULARITY, BACKGROUND_COLOR, 10);
-  */
   
   lastAdvance = millis();
 }
@@ -388,9 +381,6 @@ void keyPressed() {
 											"Damping: " + DAMPING);
 							break;
 	}
-	
-	//if (generatePushers || showDiff) video.start();
-	//else video.stop();
 
 }
 
