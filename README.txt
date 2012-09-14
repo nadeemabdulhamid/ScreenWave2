@@ -5,7 +5,7 @@ ScreenWave2
 
 
 Images
- Image files should be put in the data subdirectory of the ScreenWave2 directory.
+ Image files should be put in the data/images subdirectory of the ScreenWave2 directory. All jpg/png/bmp images in that folder are automatically loaded (in alphabetical order).
 
 
 Keyboard Controls

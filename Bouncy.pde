@@ -29,6 +29,12 @@ class Bouncy {
     this.col = col;
   }
 
+  void reset() {
+     curx = restx;
+     cury = resty;
+     velx = vely = 0; 
+  }
+
 
   void update() 
   { 

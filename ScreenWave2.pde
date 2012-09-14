@@ -1,9 +1,12 @@
 
 import codeanticode.gsvideo.*;
+import java.io.*;
 
-String[] IMAGES = { /* "wordle120.png",*/ "vikinghead.jpg", "vikinglogo.jpg", "firsthand.jpg",
-                    "fordgarden.jpg" /*, "shapes.png" */ };
-int currentImage = 0;  // index
+String IMAGE_PATH_PREFIX = "images";
+String[] IMAGES; /* = { "vikinghead.jpg", "vikinglogo.jpg", "firsthand.jpg",
+                    "fordgarden.jpg" , "shapes.png"  }; */
+Frame[] FRAMES;                    
+int currentImage;  // index
 PImage backpic;
 
 
@@ -40,14 +43,19 @@ final float DIFF_FRAME_WEIGHT = 0.9;  // weight value to use averaging current f
 final int MIN_NBRS = 4;  // min neighboring diffs to be true to generate a pusher
 
 
+long ADVANCE_DELAY = 5000;  // msec
+long lastAdvance = 0;
+
+
 
 /* options */
+boolean autoAdvance = true;    // 'A'
 boolean generatePushers = true;
 boolean mirrorVideo = true;
 boolean showBack = false;
 boolean showBouncies = true;
 boolean showCameraImage = false;
-boolean showDiff = false;
+boolean showDiff = false;       // 'D'
 boolean showFrames = false;
 boolean showPushers = false;
 boolean smoothDraw = false;
@@ -71,6 +79,11 @@ final float BOUNCY_SIZE_FACTOR = 1.5;
 import processing.video.*;
 
 void setup() {
+        IMAGES = getImageNames(dataPath(IMAGE_PATH_PREFIX));
+        for (String n : IMAGES) {
+          println("found image file: " + n);
+        }
+  
 	size(SCR_WIDTH, SCR_HEIGHT, P2D);
 	frameRate(45);
 	
@@ -96,22 +109,27 @@ void setup() {
 	pushers = new int[DIFF_WIDTH * DIFF_HEIGHT];
 	numPushers = 0;
 	
-  backpic = fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
-  bouncies = loadBouncyImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, 
+        FRAMES = new Frame[IMAGES.length];
+        backpic = fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
+        bouncies = loadBouncyImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, 
                               BOUNCY_GRANULARITY, BACKGROUND_COLOR, 10);
 	
 	loadPixels();
+        lastAdvance = millis();
 }
 
 
 void draw() {
 	//if (video.available()) { handleVideo(video); }
 	//else { diffs = null; }
+        if (autoAdvance  &&  millis() - lastAdvance > ADVANCE_DELAY) {
+           loadNext(); 
+        }
 
 	offscreen.beginDraw();
 	offscreen.noStroke();
 	if (smoothDraw) offscreen.smooth();  
-  else offscreen.noSmooth();
+   else offscreen.noSmooth();
   
 	offscreen.background(BACKGROUND_COLOR);
 	
@@ -285,9 +303,50 @@ void drawDiffImage() {
 }
 
 
+/* 
+   stores the background picture and bouncy positions for a given frame of the interaction
+   this is for caching the loaded images
+*/ 
+class Frame {
+  PImage backpic;
+  Bouncy[] bouncies;
+  
+  public Frame(String imageFileName) {
+    backpic = fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
+    bouncies = loadBouncyImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, 
+						BOUNCY_GRANULARITY, BACKGROUND_COLOR, 10);
+  }
+  
+}
+
+
+
+// for 'N' key or autoAdvance
+void loadNext() {
+  currentImage = (currentImage + 1) % IMAGES.length;
+  
+  if (FRAMES[currentImage] == null) {
+     FRAMES[currentImage] = new Frame(IMAGES[currentImage]);
+  }
+  Frame fcur = FRAMES[currentImage];  // should be valid at this point
+  
+  backpic = fcur.backpic; 
+  bouncies = fcur.bouncies;
+  for (int i = 0; i < bouncies.length; i++) {
+     bouncies[i].reset(); 
+  }
+  /* fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
+  bouncies = loadBouncyImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, 
+						BOUNCY_GRANULARITY, BACKGROUND_COLOR, 10);
+  */
+  
+  lastAdvance = millis();
+}
+
 
 void keyPressed() {
 	switch (keyCode) {
+                case 'A': autoAdvance = !autoAdvance; break;
 		case 'B': showBack = !showBack; break;
 		case 'C': showCameraImage = !showCameraImage; break;
 		case 'D': showDiff = !showDiff; break;
@@ -304,11 +363,7 @@ void keyPressed() {
 
 
 		case 'N':
-			currentImage = (currentImage + 1) % IMAGES.length;
-			backpic = fadeImage(loadAndScaleImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, BACKGROUND_COLOR), 3);
-			bouncies = loadBouncyImage(IMAGES[currentImage], SCR_WIDTH, SCR_HEIGHT, 
-																	BOUNCY_GRANULARITY, BACKGROUND_COLOR, 10);
-			//lastImageChange = millis();    
+			loadNext();
 			break;
 			
 		// +/-  = change spring constant
@@ -371,13 +426,26 @@ void captureEvent(GSCapture video) {
 
 
 
+//========================================================================================//
 
+String[] getImageNames(String path) {
+    File folder = new File(path);
+    FilenameFilter imgFilter = new FilenameFilter() {
+      public boolean accept(File dir, String name) {
+        String n = name.toLowerCase();
+         return n.endsWith(".jpg") || n.endsWith(".png") || n.endsWith(".jpeg") || n.endsWith(".bmp");
+      } 
+    };
+    
+    String[] filenames = folder.list(imgFilter);
+    return filenames;
+}
 
 
 //========================================================================================//
 
 PImage loadAndScaleImage(String name, int width, int height, color backcolor) {
-  PImage img = loadImage(dataPath(name));
+  PImage img = loadImage(dataPath(IMAGE_PATH_PREFIX + "/" + name));
   // figure out the best scaling factor to fit image to
   float toscale = min( (IMAGE_SCALE/100.0)*width / (float)img.width, (IMAGE_SCALE/100.0)*height / (float)img.height );
 
@@ -432,7 +500,7 @@ int granularity, color backcolor, int tolerance) {
 
 //========================================================================================//
 boolean fileExists(String filename) {
- File file = new File(dataPath(filename));
+ File file = new File(dataPath(IMAGE_PATH_PREFIX + "/" + filename));
  //println(file);
  return file.exists();
 }
