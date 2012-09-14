@@ -490,7 +490,7 @@ int granularity, color backcolor, int tolerance) {
 
 //========================================================================================//
 boolean fileExists(String filename) {
- File file = new File(dataPath(IMAGE_PATH_PREFIX + "/" + filename));
+ File file = new File(dataPath(filename));
  //println(file);
  return file.exists();
 }
